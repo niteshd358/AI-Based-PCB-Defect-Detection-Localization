@@ -150,8 +150,8 @@ WEIGHTS_PATH = BASE_DIR / "models" / "weights" / "best_yolo.pt"
 TEST_IMG_DIR = BASE_DIR / "data" / "processed" / "images" / "test"
 
 @st.cache_resource
-def load_detection_model(weights_file: str):
-    """Load and cache YOLO model."""
+def load_detection_model(weights_file: str, mtime: float = None):
+    """Load and cache YOLO model, automatically reloading if file mtime changes."""
     if Path(weights_file).exists():
         return YOLO(weights_file)
     else:
@@ -232,7 +232,7 @@ def run_inspection(
             conf = float(b.conf[0].item())
             x1, y1, x2, y2 = map(int, b.xyxy[0].tolist())
             
-            cls_name = TARGET_CLASSES[cls_id] if cls_id < len(TARGET_CLASSES) else f"defect_{cls_id}"
+            cls_name = model.names.get(cls_id, TARGET_CLASSES[cls_id] if cls_id < len(TARGET_CLASSES) else f"defect_{cls_id}")
             
             # Apply class filter if provided
             if filter_classes is not None and cls_name not in filter_classes:
@@ -359,7 +359,8 @@ with tab_inspect:
             
     # Process Inspection
     if input_image is not None:
-        model = load_detection_model(selected_weights)
+        mtime = Path(selected_weights).stat().st_mtime if Path(selected_weights).exists() else 0
+        model = load_detection_model(selected_weights, mtime)
         annotated_img, detections, latency_ms = run_inspection(
             input_image,
             model,
