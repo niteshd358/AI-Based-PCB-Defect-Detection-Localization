@@ -24,6 +24,9 @@ from PIL import Image
 import streamlit as st
 from ultralytics import YOLO
 
+# Import Industrial Lighting Normalizer
+from src.image_enhancement import enhance_pcb_image
+
 # Page Configuration
 st.set_page_config(
     page_title="PCB Defect AOI System | ME6324",
@@ -212,15 +215,42 @@ def run_inspection(
     box_thickness: int = 3,
     highlight_fill: bool = True,
     show_confidence: bool = True,
-    filter_classes: List[str] = None
+    filter_classes: List[str] = None,
+    enable_enhancement: bool = True,
+    enable_wb: bool = True,
+    enable_clahe: bool = True,
+    clahe_clip: float = 2.5,
+    enable_glare: bool = True,
+    enable_sharp: bool = False,
+    enable_tta: bool = False,
+    brightness: int = 0,
+    contrast: float = 1.0
 ):
-    """Run YOLO inference, filter defects, and render inspection."""
+    """Run preprocessing, YOLO inference, filter defects, and render inspection."""
     img_array = np.array(image.convert("RGB"))
     img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
     h, w = img_bgr.shape[:2]
     
+    # 1. Apply Industrial Camera Preprocessing if enabled
+    if enable_enhancement:
+        processed_bgr = enhance_pcb_image(
+            img_bgr,
+            enable_wb=enable_wb,
+            enable_clahe=enable_clahe,
+            clahe_clip=clahe_clip,
+            enable_glare_suppression=enable_glare,
+            enable_sharpening=enable_sharp,
+            brightness=brightness,
+            contrast=contrast
+        )
+    else:
+        processed_bgr = img_bgr.copy()
+        
+    enhanced_rgb = cv2.cvtColor(processed_bgr, cv2.COLOR_BGR2RGB)
+    
+    # 2. Run Inference
     t0 = time.perf_counter()
-    results = model.predict(img_bgr, conf=conf_thresh, iou=iou_thresh, verbose=False)
+    results = model.predict(processed_bgr, conf=conf_thresh, iou=iou_thresh, augment=enable_tta, verbose=False)
     latency_ms = (time.perf_counter() - t0) * 1000.0
     
     result = results[0]
@@ -242,7 +272,7 @@ def run_inspection(
             pad = 20
             cx1, cy1 = max(0, x1 - pad), max(0, y1 - pad)
             cx2, cy2 = min(w, x2 + pad), min(h, y2 + pad)
-            crop_rgb = img_array[cy1:cy2, cx1:cx2]
+            crop_rgb = enhanced_rgb[cy1:cy2, cx1:cx2]
             
             detections.append({
                 "class": cls_name,
@@ -254,7 +284,7 @@ def run_inspection(
             })
             
     annotated_bgr = draw_detections(
-        img_bgr,
+        processed_bgr,
         detections,
         box_thickness=box_thickness,
         highlight_fill=highlight_fill,
@@ -262,7 +292,7 @@ def run_inspection(
     )
     annotated_rgb = cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB)
     
-    return annotated_rgb, detections, latency_ms
+    return annotated_rgb, enhanced_rgb, detections, latency_ms
 
 # --- SIDEBAR CONTROLS ---
 with st.sidebar:
@@ -281,6 +311,18 @@ with st.sidebar:
     conf_thresh = st.slider("Confidence Threshold", min_value=0.05, max_value=0.95, value=0.25, step=0.05)
     iou_thresh = st.slider("NMS IoU Threshold", min_value=0.10, max_value=0.90, value=0.45, step=0.05)
     
+    st.divider()
+    with st.expander("🛠️ Camera Lighting & Preprocessing", expanded=True):
+        enable_enhancement = st.checkbox("Enable Image Preprocessing", value=True, help="Normalizes irregular desk lighting, shadows, and color cast")
+        enable_wb = st.checkbox("Auto White Balance (Neutralize Tint)", value=True)
+        enable_clahe = st.checkbox("Adaptive CLAHE Contrast (Shadow Removal)", value=True)
+        clahe_clip = st.slider("CLAHE Clip Limit", 1.0, 5.0, 2.5, 0.5)
+        enable_glare = st.checkbox("Specular Glare Suppression", value=True)
+        enable_sharp = st.checkbox("Edge Sharpening (Fix Lens Blur)", value=False)
+        enable_tta = st.checkbox("Test-Time Augmentation (TTA Multi-Scale)", value=False, help="Infers across multi-scale views to boost tiny defect recall")
+        brightness = st.slider("Brightness Offset", -50, 50, 0, 5)
+        contrast = st.slider("Contrast Multiplier", 0.7, 1.5, 1.0, 0.05)
+        
     st.divider()
     st.markdown("### 🎨 Visual Box & Overlay Styling")
     box_thickness = st.slider("Bounding Box Thickness", min_value=1, max_value=6, value=3, step=1)
@@ -361,7 +403,7 @@ with tab_inspect:
     if input_image is not None:
         mtime = Path(selected_weights).stat().st_mtime if Path(selected_weights).exists() else 0
         model = load_detection_model(selected_weights, mtime)
-        annotated_img, detections, latency_ms = run_inspection(
+        annotated_img, enhanced_img, detections, latency_ms = run_inspection(
             input_image,
             model,
             conf_thresh,
@@ -369,7 +411,16 @@ with tab_inspect:
             box_thickness=box_thickness,
             highlight_fill=highlight_fill,
             show_confidence=show_confidence,
-            filter_classes=filter_classes
+            filter_classes=filter_classes,
+            enable_enhancement=enable_enhancement,
+            enable_wb=enable_wb,
+            enable_clahe=enable_clahe,
+            clahe_clip=clahe_clip,
+            enable_glare=enable_glare,
+            enable_sharp=enable_sharp,
+            enable_tta=enable_tta,
+            brightness=brightness,
+            contrast=contrast
         )
         st.session_state["detections"] = detections
         
@@ -434,13 +485,25 @@ with tab_inspect:
         st.markdown("<br>", unsafe_allow_html=True)
         
         # 3. Visual Display
-        col_raw, col_ann = st.columns(2)
-        with col_raw:
-            st.markdown("##### 📷 Raw Input Board")
-            st.image(input_image, use_container_width=True)
-        with col_ann:
-            st.markdown("##### 🔍 Localized Defect Annotations (Visible Boxes & Labels)")
-            st.image(annotated_img, use_container_width=True)
+        if enable_enhancement:
+            col_raw, col_enh, col_ann = st.columns(3)
+            with col_raw:
+                st.markdown("##### 📷 Raw Camera Capture")
+                st.image(input_image, use_container_width=True)
+            with col_enh:
+                st.markdown("##### ⚡ Normalized (CLAHE / WB)")
+                st.image(enhanced_img, use_container_width=True)
+            with col_ann:
+                st.markdown("##### 🔍 Localized Defect Annotations")
+                st.image(annotated_img, use_container_width=True)
+        else:
+            col_raw, col_ann = st.columns(2)
+            with col_raw:
+                st.markdown("##### 📷 Raw Input Board")
+                st.image(input_image, use_container_width=True)
+            with col_ann:
+                st.markdown("##### 🔍 Localized Defect Annotations")
+                st.image(annotated_img, use_container_width=True)
             
         # 4. Defect Itemization Table & Export
         st.markdown("---")

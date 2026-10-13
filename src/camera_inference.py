@@ -11,6 +11,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 from ultralytics import YOLO
+from src.image_enhancement import enhance_pcb_image
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEIGHTS_PATH = BASE_DIR / "models" / "weights" / "best_yolo.pt"
@@ -52,7 +53,8 @@ def run_camera_stream(
     camera_index: int = 0,
     model_path: str = None,
     conf_thres: float = 0.35,
-    iou_thres: float = 0.45
+    iou_thres: float = 0.45,
+    enable_enhancement: bool = True
 ):
     if model_path is None or not Path(model_path).exists():
         model_path = str(WEIGHTS_PATH)
@@ -74,7 +76,10 @@ def run_camera_stream(
     
     prev_time = time.time()
     
-    print("\n[ACTIVE] Live Camera Inspection Started. Press 'q' or 'ESC' to exit.")
+    print("\n[ACTIVE] Live Camera Inspection Started.")
+    print("Controls:")
+    print("  'e': Toggle Real-World Lighting Enhancement (CLAHE + White Balance)")
+    print("  'q' or ESC: Exit Inspection Stream\n")
     
     while True:
         ret, frame = cap.read()
@@ -82,11 +87,17 @@ def run_camera_stream(
             print("[WARN] Failed to grab frame from camera.")
             break
             
+        # Optional industrial camera preprocessing
+        if enable_enhancement:
+            input_frame = enhance_pcb_image(frame, enable_wb=True, enable_clahe=True, enable_glare_suppression=True)
+        else:
+            input_frame = frame
+            
         # Run inference
-        results = model.predict(frame, conf=conf_thres, iou=iou_thres, verbose=False)
+        results = model.predict(input_frame, conf=conf_thres, iou=iou_thres, verbose=False)
         result = results[0]
         
-        annotated_frame = frame.copy()
+        annotated_frame = input_frame.copy()
         defects_found = []
         
         # Parse detections
@@ -120,7 +131,10 @@ def run_camera_stream(
         
         cv2.imshow("PCB Automated Optical Inspection (AOI)", annotated_frame)
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q') or key == 27:
+        if key == ord('e') or key == ord('E'):
+            enable_enhancement = not enable_enhancement
+            print(f"[TOGGLE] Lighting Preprocessing: {'ENABLED' if enable_enhancement else 'DISABLED'}")
+        elif key == ord('q') or key == 27:
             break
             
     cap.release()
