@@ -1,0 +1,29 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+env/
+.venv/
+.pytest_cache/
+
+# Datasets (large image archives - generated via src/download_data.py)
+data/raw/
+data/processed/images/
+data/processed/labels/
+*.zip
+*.tar.gz
+
+# Ultralytics & Training output runs
+/yolov8n.pt
+models/yolo_runs/
+models/eval_runs/
+runs/
+.cache/
+wandb/
+
+# OS specific files
+.DS_Store
+Thumbs.db
