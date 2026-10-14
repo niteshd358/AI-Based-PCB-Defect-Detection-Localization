@@ -391,13 +391,19 @@ with tab_inspect:
     input_image = None
     
     if input_mode == "Upload PCB Image":
-        uploaded_file = st.file_uploader("Upload top-down PCB scan or photo:", type=["jpg", "jpeg", "png"])
+        uploaded_file = st.file_uploader(
+            "Upload top-down PCB scan or photo:",
+            type=["jpg", "jpeg", "png", "bmp", "tiff", "tif", "webp"],
+            help="Supports standard formats (JPG, PNG) and industrial machine vision formats (BMP, TIFF, WEBP)"
+        )
         if uploaded_file is not None:
             input_image = Image.open(uploaded_file)
             
     elif input_mode == "Select Test Set Sample":
         if TEST_IMG_DIR.exists():
-            test_samples = list(TEST_IMG_DIR.glob("*.jpg")) + list(TEST_IMG_DIR.glob("*.png"))
+            test_samples = []
+            for ext in ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.tif", "*.webp"):
+                test_samples.extend(list(TEST_IMG_DIR.glob(ext)))
             if test_samples:
                 sample_names = [f.name for f in test_samples[:30]]
                 selected_sample = st.selectbox("Pick from Held-Out Test Split:", sample_names)
