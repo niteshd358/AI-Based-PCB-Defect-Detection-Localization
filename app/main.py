@@ -12,11 +12,18 @@ Interactive Streamlit Application featuring:
 - Grad-CAM Explainability viewer & Baseline model comparison
 """
 
+import sys
 import io
 import time
 import json
 from pathlib import Path
 from typing import List, Dict, Tuple
+
+# Ensure project root is in sys.path for Streamlit Cloud & local executions
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import cv2
 import numpy as np
 import pandas as pd
@@ -24,8 +31,15 @@ from PIL import Image
 import streamlit as st
 from ultralytics import YOLO
 
-# Import Industrial Lighting Normalizer
-from src.image_enhancement import enhance_pcb_image
+# Import Industrial Lighting Normalizer with fallback
+try:
+    from src.image_enhancement import enhance_pcb_image
+except ImportError:
+    try:
+        from image_enhancement import enhance_pcb_image
+    except ImportError:
+        def enhance_pcb_image(img, **kwargs):
+            return img
 
 # Page Configuration
 st.set_page_config(
