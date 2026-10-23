@@ -7,6 +7,8 @@
 ## 1. Project Overview
 This project replaces manual, fatigue-prone visual inspection with a state-of-the-art deep learning-based Automated Optical Inspection (AOI) system for printed circuit board (PCB) manufacturing.
 
+📖 **Comprehensive Documentation:** For the full 20-page equivalent engineering technical documentation covering mathematical formulations, multi-task loss derivation, baseline model benchmarks, Grad-CAM explainability mechanics, and manufacturing FMEA analysis, refer to [DETAILED_PROJECT_REPORT.md](file:///d:/Ai_In_manf/ai%20in%20manufactruing/DETAILED_PROJECT_REPORT.md).
+
 ### Target Defect Categories (6 Classes)
 0. **`missing_hole`**: Unpunched or missing drill via / component hole.
 1. **`mouse_bite`**: Small chunk eroded along the edge of a copper trace.
