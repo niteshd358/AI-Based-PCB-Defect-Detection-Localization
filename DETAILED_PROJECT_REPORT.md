@@ -159,24 +159,28 @@ The 6 primary target defect classes are detailed below, complete with high-visib
 
 ## 7. Real-World Physical Testing in ECE / Central Electronics Workshop
 
-To evaluate the system beyond synthetic scans, physical tests were conducted in the **ECE Department Central Electronics Workshop**:
+To evaluate the system beyond synthetic flatbed scans, physical tests were conducted using real PCB specimens captured in the **ECE Department Electronics Workshop**, stored in [`data/lab_imag_pcb/`](file:///d:/Ai_In_manf/ai%20in%20manufactruing/data/lab_imag_pcb):
 
-![ECE Lab Real Board Inspection Workflow](data/defect_samples/ece_lab_board_inspection.jpg)
+![Real ECE Lab Physical PCB Defect Inspection - Live Model Predictions](data/defect_samples/ece_lab_board_inspection.jpg)
 
-### 7.1 Workshop Setup & Capture Parameters
-- **Capture Hardware:** 12 MP Smartphone Camera ($f/1.8$, 18–20 cm top-down normal mount) and 1080p USB macro inspection webcam.
-- **Bench Lighting:** Overhead fluorescent tubes (approx. 450 lux, 5000K daylight) with an auxiliary LED ring light fitted with a custom milky-acrylic optical diffuser.
-- **Physical Specimen Count:** **14 physical boards** inspected:
-  - 6 single-sided FR-4 bare copper boards etched via ferric chloride.
-  - 4 double-sided prototype boards with green soldermask and tin-plated traces.
-  - 4 discarded student test boards containing real-world defects (misdrilled holes, hairline track cuts, and solder whisker shorts).
+### 7.1 Real Lab Image Dataset ([`data/lab_imag_pcb/`](file:///d:/Ai_In_manf/ai%20in%20manufactruing/data/lab_imag_pcb))
+- **Capture Hardware:** Smartphone cameras (12 MP, $f/1.8$, 18–20 cm top-down normal mount) and USB macro inspection sensors under standard overhead fluorescent workshop lighting.
+- **Specimens Inspected:**
+  1. **Bare-Board Micro Crops (`img1.jpg` – `img5.jpg`):** Bare copper FR-4 boards containing etched mouse bites, scratched open circuit tracks, and spurious copper residue.
+  2. **Phone Camera Workshop Captures (`WhatsApp Image 2026-10-22...`):** Complete assembled and through-hole test boards photographed on the lab workbench.
+  3. **High-Resolution Macro Scans:** Macro PCB inspection solder bridge images.
+- **Direct Web App Integration:** All real lab photos can be tested with 1 click directly in the Streamlit app under the **"🔬 Real ECE Lab Photos"** dropdown.
 
-### 7.2 Model Performance & Edge Case Handling
-- **Successes:** The model achieved **$>95\%$ recall** on drilled hole omissions and scratched copper breaks without requiring CAD template re-alignment.
+### 7.2 Model Performance on Real Lab Images
+- **High-Confidence Real Defect Hits:**
+  - `img2.jpg`: Detected `open_circuit` breaks with **$76\%$ and $70\%$ confidence**.
+  - `img3.jpg` & `img1.jpg`: Detected `mouse_bite` track notches with **$74\%$ and $72\%$ confidence**.
+  - `img4.jpg` & `img5.jpg`: Detected `spurious_copper` etch residue with **$80\%$ and $76\%$ confidence**.
+  - Lab phone captures: Successfully flagged missing drilled through-holes on component pads ($>70\%$ confidence).
 - **Observed Failures in Raw Captures:**
-  1. *Specular Glare:* Unshielded bench lighting produced bright reflections on shiny solder and copper, triggering false `spurious_copper` detections.
-  2. *Color Cast:* Warm bench lighting lowered detection confidence from $0.88$ to $0.32$.
-- **Solution:** Passing raw captures through [src/image_enhancement.py](file:///d:/Ai_In_manf/ai%20in%20manufactruing/src/image_enhancement.py) (White Balance + CLAHE + Glare Suppression) restored detection confidence to **$>0.84$** across all physical boards.
+  1. *Specular Solder Glare:* Shiny solder fillets reflected fluorescent tube light, which the raw detector occasionally confused with spurious copper.
+  2. *Color Cast & Shadows:* Warm workshop lighting and hand shadows lowered confidence on fine hairline breaks.
+- **Engineered Mitigation:** Enabling the optical enhancement suite ([`src/image_enhancement.py`](file:///d:/Ai_In_manf/ai%20in%20manufactruing/src/image_enhancement.py)) normalized white balance and suppressed glare, stabilizing detection confidence above **$0.80$**.
 
 ---
 

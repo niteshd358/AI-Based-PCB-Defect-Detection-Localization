@@ -165,6 +165,8 @@ REPAIR_RECOMMENDATIONS = {
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEIGHTS_PATH = BASE_DIR / "models" / "weights" / "best_yolo.pt"
 TEST_IMG_DIR = BASE_DIR / "data" / "processed" / "images" / "test"
+LAB_IMG_DIR = BASE_DIR / "data" / "lab_imag_pcb"
+USER_TEST_DIR = BASE_DIR / "data" / "user_testing" / "images"
 
 @st.cache_resource
 def load_detection_model(weights_file: str, mtime: float = None):
@@ -386,7 +388,11 @@ tab_inspect, tab_gallery, tab_gradcam, tab_benchmarks = st.tabs([
 current_detections = []
 
 with tab_inspect:
-    input_mode = st.radio("Select Input Source:", ["Upload PCB Image", "Select Test Set Sample", "Live Webcam Capture"], horizontal=True)
+    input_mode = st.radio(
+        "Select Input Source:",
+        ["Upload PCB Image", "🔬 Real ECE Lab Photos", "📦 Isolated User-Testing Boards", "Select Test Set Sample", "Live Webcam Capture"],
+        horizontal=True
+    )
     
     input_image = None
     
@@ -398,6 +404,34 @@ with tab_inspect:
         )
         if uploaded_file is not None:
             input_image = Image.open(uploaded_file)
+            
+    elif input_mode == "🔬 Real ECE Lab Photos":
+        if LAB_IMG_DIR.exists():
+            lab_files = sorted([f for f in LAB_IMG_DIR.glob("*.*") if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp", ".jfif"]])
+            if lab_files:
+                lab_names = [f.name for f in lab_files]
+                selected_lab = st.selectbox("Select Real Lab Image to Inspect:", lab_names, index=3 if len(lab_names) > 3 else 0)
+                if selected_lab:
+                    input_image = Image.open(LAB_IMG_DIR / selected_lab)
+                    st.caption(f"📁 Source: `data/lab_imag_pcb/{selected_lab}` (Physical board image from lab)")
+            else:
+                st.warning("No images found in data/lab_imag_pcb.")
+        else:
+            st.warning("Directory data/lab_imag_pcb not found.")
+
+    elif input_mode == "📦 Isolated User-Testing Boards":
+        if USER_TEST_DIR.exists():
+            user_files = sorted([f for f in USER_TEST_DIR.glob("*.*") if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".bmp"]])
+            if user_files:
+                user_names = [f.name for f in user_files[:60]]
+                selected_user = st.selectbox("Select Isolated User-Testing Board (Never seen in training):", user_names)
+                if selected_user:
+                    input_image = Image.open(USER_TEST_DIR / selected_user)
+                    st.caption(f"📁 Source: `data/user_testing/images/{selected_user}` (Isolated blind test board)")
+            else:
+                st.warning("No images found in data/user_testing/images. Run partition_dataset.py first.")
+        else:
+            st.warning("Directory data/user_testing/images not found.")
             
     elif input_mode == "Select Test Set Sample":
         if TEST_IMG_DIR.exists():
