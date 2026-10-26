@@ -19,6 +19,7 @@ MODELS_DIR = BASE_DIR / "models"
 WEIGHTS_DIR = MODELS_DIR / "weights"
 
 def train_yolo(
+    data_yaml: str = None,
     model_name: str = "yolov8n.pt",
     epochs: int = 30,
     imgsz: int = 640,
@@ -33,8 +34,9 @@ def train_yolo(
     """
     WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
     
-    if not DATA_YAML.exists():
-        raise FileNotFoundError(f"Configuration file {DATA_YAML} not found! Run convert_to_yolo.py first.")
+    data_path = Path(data_yaml) if data_yaml else DATA_YAML
+    if not data_path.exists():
+        raise FileNotFoundError(f"Configuration file {data_path} not found!")
         
     if device is None:
         device = "0" if torch.cuda.is_available() else "cpu"
@@ -56,7 +58,7 @@ def train_yolo(
     
     # Train
     results = model.train(
-        data=str(DATA_YAML),
+        data=str(data_path),
         epochs=epochs,
         imgsz=imgsz,
         batch=batch,
@@ -96,6 +98,7 @@ def train_yolo(
 
 def main():
     parser = argparse.ArgumentParser(description="Train YOLO on PCB Defect Dataset")
+    parser.add_argument("--data", type=str, default=str(DATA_YAML), help="Path to data yaml (e.g. data/pcb_data.yaml or data/custom_data.yaml)")
     parser.add_argument("--model", type=str, default="yolov8n.pt", help="Pretrained model (e.g. yolov8n.pt, yolo11n.pt)")
     parser.add_argument("--epochs", type=int, default=30, help="Number of training epochs")
     parser.add_argument("--imgsz", type=int, default=640, help="Input image dimension")
@@ -105,6 +108,7 @@ def main():
     args = parser.parse_args()
     
     train_yolo(
+        data_yaml=args.data,
         model_name=args.model,
         epochs=args.epochs,
         imgsz=args.imgsz,

@@ -13,6 +13,8 @@ env/
 data/raw/
 data/processed/images/
 data/processed/labels/
+data/custom_split/
+data/user_testing/
 *.zip
 *.tar.gz
 
